@@ -1,26 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export function App() {
-  const [state, setState] = useState(() => {
-    const savedState = localStorage.getItem('todos');
-    return savedState ? JSON.parse(savedState) : [];
-  });
+  const [state, setState] = useState(
+    JSON.parse(localStorage.getItem('todos')) || []
+  );
   const [inputValue, setInputValue] = useState('');
 
   useEffect(() => {
     localStorage.setItem('todos', JSON.stringify(state));
   }, [state]);
 
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     const response = await fetch(
-  //       'https://jsonplaceholder.typicode.com/todos'
-  //     );
-  //     const data = await response.json();
-  //     setState(data);
-  //   };
-  //   fetchData();
-  // }, []);
+  useEffect(() => {
+    const fetchData = async () => {
+      const response = await fetch(
+        'https://jsonplaceholder.typicode.com/todos'
+      );
+      const data = await response.json();
+      setState(data);
+    };
+    fetchData();
+  }, []);
 
   const handleInputChange = (event) => {
     setInputValue(event.target.value);
@@ -28,27 +27,83 @@ export function App() {
 
   const handleSaveTask = () => {
     if (inputValue.trim() !== '') {
-      setState((prev) => [...prev, { title: inputValue, completed: false }]);
-      setInputValue('');
+      fetch('https://jsonplaceholder.typicode.com/todos', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: inputValue,
+          completed: false,
+          id: state.length + 1,
+        }),
+      })
+        .then(() => {
+          setState((prev) => [
+            ...prev,
+            { title: inputValue, completed: false, id: state.length + 1 },
+          ]);
+          setInputValue('');
+        })
+        .catch((e) => {
+          alert(e.message);
+        });
     }
   };
 
   const handleRemoveTask = (taskIndexToRemove) => {
-    setState((prev) => prev.filter((_, index) => index !== taskIndexToRemove));
+    fetch('https://jsonplaceholder.typicode.com/todos', {
+      method: 'DELETE',
+    }).then((e) => {
+      if (e.status >= 400) {
+        alert("Can't delete, try later");
+      } else {
+        setState((prev) =>
+          prev.filter((_, index) => index !== taskIndexToRemove)
+        );
+      }
+    });
   };
 
   const updateTaskStatus = (index) => {
+    fetch('https://jsonplaceholder.typicode.com/todos', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        completed: !task.completed,
+      }),
+    })
+      .then(() => {
+        setState((prev) =>
+          prev.map((task, i) =>
+            i === index ? { ...task, completed: !task.completed } : task
+          )
+        );
+      })
+      .catch((e) => {
+        alert(e.message);
+      });
+  };
+
+  const onChange = () => {
     setState((prev) =>
-      prev.map((task, i) =>
-        i === index ? { ...task, completed: !task.completed } : task
-      )
+      prev.map((task, i) => (i === index ? { ...task, title: newName } : task))
     );
   };
 
   const editTask = (index, newName) => {
-    setState((prev) =>
-      prev.map((task, i) => (i === index ? { ...task, title: newName } : task))
-    );
+    fetch('https://jsonplaceholder.typicode.com/todos', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: newName,
+      }),
+    })
+      .then(() => {
+        setState((prev) =>
+          prev.map((task, i) =>
+            i === index ? { ...task, title: newName } : task
+          )
+        );
+      })
+      .catch((e) => {
+        alert(e.message);
+      });
   };
 
   return (
@@ -80,7 +135,8 @@ export function App() {
                   }`}
                   type='text'
                   value={task.title}
-                  onChange={(e) => editTask(index, e.target.value)}
+                  onChange={(e) => onChange(index, e.target.value)}
+                  onBlur={(e) => editTask(index, e.target.value)}
                 />
                 <button onClick={() => handleRemoveTask(index)}>Remove</button>
               </li>
